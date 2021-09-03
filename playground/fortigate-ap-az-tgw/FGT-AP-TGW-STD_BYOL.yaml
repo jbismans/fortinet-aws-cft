@@ -57,8 +57,14 @@ Metadata:
       - Label:
           default: FortiGate IP Configuration
         Parameters:
+          - FortiGateAWanIP
+          - FortiGateBWanIP
+          - FortiGateALanIP
+          - FortiGateBLanIP
           - FortiGateAHeartbeatIP
           - FortiGateBHeartbeatIP
+          - FortiGateAMgmtIP
+          - FortiGateBMgmtIP
 Parameters:
   VPCMGMTCIDR:
     Type: String
@@ -148,26 +154,26 @@ Parameters:
     Type: String
     Default: 10.0.2.1
     Description: Provide the IP of the gateway for the Lan subnet1
-  RelaySubnet1:
-    Type: String
-    Default: 10.0.3.0/24
-    Description: Provide a network CIDR for the Relay subnet1
-  RelaySubnet1RouterIP:
-    Type: String
-    Default: 10.0.3.1
-    Description: Provide the IP of the gateway for the Relay subnet1
   HeartbeatSubnet1:
     Type: String
-    Default: 10.0.4.0/24
+    Default: 10.0.3.0/24
     Description: Provide a network CIDR for the heartbeat subnet1
   MgmtSubnet1:
     Type: String
-    Default: 10.0.5.0/24
+    Default: 10.0.4.0/24
     Description: Provide a network CIDR for the management subnet1
   MgmtSubnet1RouterIP:
     Type: String
-    Default: 10.0.5.1
+    Default: 10.0.4.1
     Description: Provide the IP of the gateway for the management subnet1
+  RelaySubnet1:
+    Type: String
+    Default: 10.0.5.0/24
+    Description: Provide a network CIDR for the Relay subnet1
+  RelaySubnet1RouterIP:
+    Type: String
+    Default: 10.0.5.1
+    Description: Provide the IP of the gateway for the Relay subnet1
   WanSubnet2:
     Type: String
     Default: 10.0.10.0/24
@@ -184,22 +190,22 @@ Parameters:
     Type: String
     Default: 10.0.20.1
     Description: Provide the IP of the gateway for the Lan subnet2
-  RelaySubnet2:
-    Type: String
-    Default: 10.0.30.0/24
-    Description: Provide a network CIDR for the Relay subnet2
   HeartbeatSubnet2:
     Type: String
-    Default: 10.0.40.0/24
+    Default: 10.0.30.0/24
     Description: Provide a network CIDR for the heartbeat subnet2
   MgmtSubnet2:
     Type: String
-    Default: 10.0.50.0/24
+    Default: 10.0.40.0/24
     Description: Provide a network CIDR for the management subnet2
   MgmtSubnet2RouterIP:
     Type: String
-    Default: 10.0.50.1
+    Default: 10.0.40.1
     Description: Provide the IP of the gateway for the management subnet2
+  RelaySubnet2:
+    Type: String
+    Default: 10.0.50.0/24
+    Description: Provide a network CIDR for the Relay subnet2
   FGTInstanceType:
     Type: String
     Default: c5.xlarge
@@ -226,18 +232,54 @@ Parameters:
   HAsecret:
     Type: String
     Description: Secret for HA peer identification
+  FortiGateAWanIP:
+    Type: String
+    Default: 10.0.1.4/24
+    Description: >-
+      Enter the IP address in CIDR form for the wan interface of
+      FortiGateA (IP from wan Subnet1)
+  FortiGateBWanIP:
+    Type: String
+    Default: 10.0.10.4/24
+    Description: >-
+      Enter the IP address in CIDR form for the wan interface of
+      FortiGateB (IP from wan Subnet2)
+  FortiGateALanIP:
+    Type: String
+    Default: 10.0.2.4/24
+    Description: >-
+      Enter the IP address in CIDR form for the lan interface of
+      FortiGateA (IP from lan Subnet1)
+  FortiGateBLanIP:
+    Type: String
+    Default: 10.0.20.4/24
+    Description: >-
+      Enter the IP address in CIDR form for the lan interface of
+      FortiGateB (IP from lan Subnet2)
   FortiGateAHeartbeatIP:
     Type: String
-    Default: 10.0.4.10/24
+    Default: 10.0.3.4/24
     Description: >-
       Enter the IP address in CIDR form for the heartbeat interface of
       FortiGateA (IP from heartbeat Subnet1)
   FortiGateBHeartbeatIP:
     Type: String
-    Default: 10.0.40.10/24
+    Default: 10.0.30.4/24
     Description: >-
       Enter the IP address in CIDR form for the heartbeat interface of
       FortiGateB (IP from heartbeat Subnet2)
+  FortiGateAMgmtIP:
+    Type: String
+    Default: 10.0.4.4/24
+    Description: >-
+      Enter the IP address in CIDR form for the management interface of
+      FortiGateA (IP from management Subnet1)
+  FortiGateBMgmtIP:
+    Type: String
+    Default: 10.0.40.4/24
+    Description: >-
+      Enter the IP address in CIDR form for the management interface of
+      FortiGateB (IP from management Subnet2)
 Mappings:
   RegionMap:
     af-south-1:
@@ -549,16 +591,16 @@ Resources:
               - WanSubnet2
       VpcId: !Ref VPCID
     Type: 'AWS::EC2::Subnet'
-  WanSubnetB:
+  LanSubnetB:
     Properties:
       AvailabilityZone: !Ref AZForFGTB
-      CidrBlock: !Ref WanSubnet2
+      CidrBlock: !Ref LanSubnet2
       Tags:
         - Key: Name
           Value: !Join 
             - ''
             - - !Ref 'AWS::StackName'
-              - WanSubnet2
+              - LanSubnet2
       VpcId: !Ref VPCID
     Type: 'AWS::EC2::Subnet'
   HeartbeatSubnetB:
@@ -789,7 +831,7 @@ Resources:
           GroupSet: 
           - !Ref InstanceSecurityGroupSVC2
           SubnetId: !Ref VPCSVC2SUB1
-          PrivateIpAddress: !Ref SVC2Ubu1PrivateIP     
+          PrivateIpAddress: !Ref SVC2Ubu1PrivateIP
       UserData: !Base64 |
         #!/bin/bash -ex
         # put your script here
@@ -1146,22 +1188,18 @@ Resources:
             - !Join
               - ""
               - - "set ip "
-                - !Sub ${FGTAENI0.PrimaryPrivateIpAddress}
-                - /
-                - !Select [ "1", !Split [ "/", !Ref WanSubnet1] ]
+                - !Ref FortiGateAWanIP 
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
             - "next"
-           -  "edit port2"
+            -  "edit port2"
             - "set alias Lan"
             - "set mode static"
             - !Join
               - ""
               - - "set ip "
-                - !Sub ${FGTAENI1.PrimaryPrivateIpAddress}
-                - /
-                - !Select [ "1", !Split [ "/", !Ref LanSubnet1] ]
+                - !Ref FortiGateALanIP 
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
@@ -1187,9 +1225,7 @@ Resources:
             - !Join 
               - ""
               - - "set ip "
-                - !Sub ${FGTAENI3.PrimaryPrivateIpAddress}
-                - /
-                - !Select [ "1", !Split [ "/", !Ref MgmtSubnet1] ]  
+                - !Ref FortiGateAMgmtIP 
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
@@ -1198,7 +1234,7 @@ Resources:
             - "config router static"
             - "edit 1"
             - "set device port1"
-            - !Join 
+            - !Join
               - ""
               - - "set gateway "
                 - !Ref WanSubnet1RouterIP
@@ -1208,33 +1244,33 @@ Resources:
             - !Join 
               - ""
               - - "set dst "
-              - !Ref VPCMGMTCIDR
+                - !Ref VPCMGMTCIDR
             - !Join 
               - ""
               - - "set gateway "
-              - !Ref LanSubnet1RouterIP
+                - !Ref LanSubnet1RouterIP
             - "next"
             - "edit 3"
             - "set device port2"
             - !Join 
               - ""
               - - "set dst "
-              - !Ref VPCSVC1CIDR
+                - !Ref VPCSVC1CIDR
             - !Join 
               - ""
               - - "set gateway "
-              - !Ref LanSubnet1RouterIP
+                - !Ref LanSubnet1RouterIP
             - "next"
             - "edit 4"
             - "set device port2"
             - !Join 
               - ""
               - - "set dst "
-              - !Ref VPCSVC2CIDR
+                - !Ref VPCSVC2CIDR
             - !Join 
               - ""
               - - "set gateway "
-              - !Ref LanSubnet1RouterIP
+                - !Ref LanSubnet1RouterIP
             - "end"
             - "config firewall address"
             - "edit toSVC1"
@@ -1322,9 +1358,7 @@ Resources:
             - !Join
               - ""
               - - "set ip "
-                - !Sub ${FGTBENI0.PrimaryPrivateIpAddress}
-                - /
-                - !Select [ "1", !Split [ "/", !Ref WanSubnet2] ]
+                - !Ref FortiGateBWanIP 
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
@@ -1335,9 +1369,7 @@ Resources:
             - !Join
               - ""
               - - "set ip "
-                - !Sub ${FGTBENI1.PrimaryPrivateIpAddress}
-                - /
-                - !Select [ "1", !Split [ "/", !Ref LanSubnet2] ]
+                - !Ref FortiGateBLanIP 
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
@@ -1359,9 +1391,7 @@ Resources:
             - !Join 
               - ""
               - - "set ip "
-                - !Sub ${FGTBENI3.PrimaryPrivateIpAddress}
-                - /
-                - !Select [ "1", !Split [ "/", !Ref MgmtSubnet2] ]  
+                - !Ref FortiGateBMgmtIP 
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
@@ -1380,33 +1410,33 @@ Resources:
             - !Join 
               - ""
               - - "set dst "
-              - !Ref VPCMGMTCIDR
+                - !Ref VPCMGMTCIDR
             - !Join 
               - ""
               - - "set gateway "
-              - !Ref LanSubnet2RouterIP
+                - !Ref LanSubnet2RouterIP
             - "next"
             - "edit 3"
             - "set device port2"
             - !Join 
               - ""
               - - "set dst "
-              - !Ref VPCSVC1CIDR
+                - !Ref VPCSVC1CIDR
             - !Join 
               - ""
               - - "set gateway "
-              - !Ref LanSubnet2RouterIP
+                - !Ref LanSubnet2RouterIP
             - "next"
             - "edit 4"
             - "set device port2"
             - !Join 
               - ""
               - - "set dst "
-              - !Ref VPCSVC2CIDR
+                - !Ref VPCSVC2CIDR
             - !Join 
               - ""
               - - "set gateway "
-              - !Ref LanSubnet2RouterIP
+                - !Ref LanSubnet2RouterIP
             - "end"
             - "config firewall addrgrp"
             - "edit to-WEST"
@@ -1449,6 +1479,13 @@ Resources:
         - !Ref FGTSecGrpBase
       SourceDestCheck: false
       SubnetId: !Ref WanSubnetA
+      PrivateIpAddresses:
+        - PrivateIpAddress: !Select 
+            - '0'
+            - !Split 
+              - /
+              - !Ref FortiGateAWanIP
+          Primary:  true
       Tags:
         - Key: Name
           Value: !Join 
@@ -1465,6 +1502,13 @@ Resources:
         - !Ref FGTSecGrpBase
       SourceDestCheck: false
       SubnetId: !Ref WanSubnetB
+      PrivateIpAddresses:
+        - PrivateIpAddress: !Select 
+            - '0'
+            - !Split 
+              - /
+              - !Ref FortiGateBWanIP
+          Primary:  true
       Tags:
         - Key: Name
           Value: !Join
@@ -1480,7 +1524,14 @@ Resources:
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck: false
-      SubnetId: !Ref WanSubnetA
+      SubnetId: !Ref LanSubnetA
+      PrivateIpAddresses:
+        - PrivateIpAddress: !Select 
+            - '0'
+            - !Split 
+              - /
+              - !Ref FortiGateALanIP
+          Primary:  true
       Tags:
         - Key: Name
           Value: !Join 
@@ -1496,7 +1547,14 @@ Resources:
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck: false
-      SubnetId: !Ref WanSubnetB
+      SubnetId: !Ref LanSubnetB
+      PrivateIpAddresses:
+        - PrivateIpAddress: !Select 
+            - '0'
+            - !Split 
+              - /
+              - !Ref FortiGateBLanIP
+          Primary:  true
       Tags:
         - Key: Name
           Value: !Join
@@ -1555,6 +1613,13 @@ Resources:
         - !Ref FGTSecGrpBase
       SourceDestCheck:  false
       SubnetId: !Ref MgmtSubnetA
+      PrivateIpAddresses:
+        - PrivateIpAddress: !Select 
+            - '0'
+            - !Split 
+              - /
+              - !Ref FortiGateAMgmtIP
+          Primary:  true
       Tags:
         - Key: Name
           Value: !Join 
@@ -1569,6 +1634,13 @@ Resources:
         - !Ref FGTSecGrpBase
       SourceDestCheck:  false
       SubnetId: !Ref MgmtSubnetB
+      PrivateIpAddresses:
+        - PrivateIpAddress: !Select 
+            - '0'
+            - !Split 
+              - /
+              - !Ref FortiGateBMgmtIP
+          Primary:  true
       Tags:
         - Key: Name
           Value: !Join 
@@ -1642,7 +1714,7 @@ Resources:
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref LanRouteTable
+      RouteTableId: !Ref WanRouteTable
     Type: 'AWS::EC2::Route'
   LanRouteTable:
     Properties:
