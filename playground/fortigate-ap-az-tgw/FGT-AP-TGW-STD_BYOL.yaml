@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: 3 VPC + 3 Subnet/VPC + 3 Ubuntu Hosts + 3 Route Tables - 1 VPC has internet Access the other 2 do not + TGW
+Description: 3 VPC + 4 Subnet/VPC + 3 Ubuntu Hosts + 3 Route Tables - 1 VPC has internet Access the other 2 do not + TGW
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -16,15 +16,19 @@ Metadata:
           default: Security Hub Configuration
         Parameters:
           - VPCCIDR
-          - DataSubnet1
-          - DataSubnet1RouterIP
+          - WanSubnet1
+          - WanSubnet1RouterIP
+          - LanSubnet1
+          - LanSubnet1RouterIP
           - RelaySubnet1
           - RelaySubnet1RouterIP
           - HeartbeatSubnet1
           - MgmtSubnet1
           - MgmtSubnet1RouterIP
-          - DataSubnet2
-          - DataSubnet2RouterIP
+          - WanSubnet2
+          - WanSubnet2RouterIP         
+          - LanSubnet2
+          - LanSubnet2RouterIP
           - RelaySubnet2
           - RelaySubnet2RouterIP
           - HeartbeatSubnet2
@@ -128,57 +132,73 @@ Parameters:
   AZForFGTB:
     Type: 'AWS::EC2::AvailabilityZone::Name'
     Description: Select the second AZ for FortiGateB
-  DataSubnet1:
+  WanSubnet1:
     Type: String
     Default: 10.0.1.0/24
-    Description: Provide a network CIDR for the Data Subnet1
-  DataSubnet1RouterIP:
+    Description: Provide a network CIDR for the Wan Subnet1
+  WanSubnet1RouterIP:
     Type: String
     Default: 10.0.1.1
-    Description: Provide the IP of the gateway for the Data subnet1
-  RelaySubnet1:
+    Description: Provide the IP of the gateway for the Wan subnet1
+  LanSubnet1:
     Type: String
     Default: 10.0.2.0/24
+    Description: Provide a network CIDR for the Lan Subnet1
+  LanSubnet1RouterIP:
+    Type: String
+    Default: 10.0.2.1
+    Description: Provide the IP of the gateway for the Lan subnet1
+  RelaySubnet1:
+    Type: String
+    Default: 10.0.3.0/24
     Description: Provide a network CIDR for the Relay subnet1
   RelaySubnet1RouterIP:
     Type: String
-    Default: 10.0.2.1
+    Default: 10.0.3.1
     Description: Provide the IP of the gateway for the Relay subnet1
   HeartbeatSubnet1:
     Type: String
-    Default: 10.0.3.0/24
+    Default: 10.0.4.0/24
     Description: Provide a network CIDR for the heartbeat subnet1
   MgmtSubnet1:
     Type: String
-    Default: 10.0.4.0/24
+    Default: 10.0.5.0/24
     Description: Provide a network CIDR for the management subnet1
   MgmtSubnet1RouterIP:
     Type: String
-    Default: 10.0.4.1
+    Default: 10.0.5.1
     Description: Provide the IP of the gateway for the management subnet1
-  DataSubnet2:
+  WanSubnet2:
     Type: String
     Default: 10.0.10.0/24
-    Description: Provide a network CIDR for the Data subnet2
-  DataSubnet2RouterIP:
+    Description: Provide a network CIDR for the Wan subnet2
+  WanSubnet2RouterIP:
     Type: String
     Default: 10.0.10.1
-    Description: Provide the IP of the gateway for the Data subnet2
-  RelaySubnet2:
+    Description: Provide the IP of the gateway for the Wan subnet2
+  LanSubnet2:
     Type: String
     Default: 10.0.20.0/24
+    Description: Provide a network CIDR for the Lan subnet2
+  LanSubnet2RouterIP:
+    Type: String
+    Default: 10.0.20.1
+    Description: Provide the IP of the gateway for the Lan subnet2
+  RelaySubnet2:
+    Type: String
+    Default: 10.0.30.0/24
     Description: Provide a network CIDR for the Relay subnet2
   HeartbeatSubnet2:
     Type: String
-    Default: 10.0.30.0/24
+    Default: 10.0.40.0/24
     Description: Provide a network CIDR for the heartbeat subnet2
   MgmtSubnet2:
     Type: String
-    Default: 10.0.40.0/24
+    Default: 10.0.50.0/24
     Description: Provide a network CIDR for the management subnet2
   MgmtSubnet2RouterIP:
     Type: String
-    Default: 10.0.40.1
+    Default: 10.0.50.1
     Description: Provide the IP of the gateway for the management subnet2
   FGTInstanceType:
     Type: String
@@ -191,6 +211,11 @@ Parameters:
       - c5.4xlarge
       - c5.9xlarge
       - c5.18xlarge
+      - c5n.xlarge
+      - c5n.2xlarge
+      - c5n.4xlarge
+      - c5n.9xlarge
+      - c5n.18xlarge
   CIDRForFGTAccess:
     Type: String
     Default: 0.0.0.0/0
@@ -203,13 +228,13 @@ Parameters:
     Description: Secret for HA peer identification
   FortiGateAHeartbeatIP:
     Type: String
-    Default: 10.0.3.10/24
+    Default: 10.0.4.10/24
     Description: >-
       Enter the IP address in CIDR form for the heartbeat interface of
       FortiGateA (IP from heartbeat Subnet1)
   FortiGateBHeartbeatIP:
     Type: String
-    Default: 10.0.30.10/24
+    Default: 10.0.40.10/24
     Description: >-
       Enter the IP address in CIDR form for the heartbeat interface of
       FortiGateB (IP from heartbeat Subnet2)
@@ -452,16 +477,28 @@ Resources:
               - RelaySubnet1
       VpcId: !Ref VPCID
     Type: 'AWS::EC2::Subnet'
-  DataSubnetA:
+  WanSubnetA:
     Properties:
       AvailabilityZone: !Ref AZForFGTA
-      CidrBlock: !Ref DataSubnet1
+      CidrBlock: !Ref WanSubnet1
       Tags:
         - Key: Name
           Value: !Join 
             - ''
             - - !Ref 'AWS::StackName'
-              - DataSubnet1
+              - WanSubnet1
+      VpcId: !Ref VPCID
+    Type: 'AWS::EC2::Subnet'
+  LanSubnetA:
+    Properties:
+      AvailabilityZone: !Ref AZForFGTA
+      CidrBlock: !Ref LanSubnet1
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref 'AWS::StackName'
+              - LanSubnet1
       VpcId: !Ref VPCID
     Type: 'AWS::EC2::Subnet'
   HeartbeatSubnetA:
@@ -500,16 +537,28 @@ Resources:
               - RelaySubnet2
       VpcId: !Ref VPCID
     Type: 'AWS::EC2::Subnet'
-  DataSubnetB:
+  WanSubnetB:
     Properties:
       AvailabilityZone: !Ref AZForFGTB
-      CidrBlock: !Ref DataSubnet2
+      CidrBlock: !Ref WanSubnet2
       Tags:
         - Key: Name
           Value: !Join 
             - ''
             - - !Ref 'AWS::StackName'
-              - DataSubnet2
+              - WanSubnet2
+      VpcId: !Ref VPCID
+    Type: 'AWS::EC2::Subnet'
+  WanSubnetB:
+    Properties:
+      AvailabilityZone: !Ref AZForFGTB
+      CidrBlock: !Ref WanSubnet2
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref 'AWS::StackName'
+              - WanSubnet2
       VpcId: !Ref VPCID
     Type: 'AWS::EC2::Subnet'
   HeartbeatSubnetB:
@@ -1069,6 +1118,8 @@ Resources:
           DeviceIndex: '1'
         - NetworkInterfaceId: !Ref FGTAENI2
           DeviceIndex: '2'
+        - NetworkInterfaceId: !Ref FGTAENI3
+          DeviceIndex: '3'
       Tags:
         - Key: Name
           Value: !Join 
@@ -1090,19 +1141,32 @@ Resources:
             - "end"
             - "config system interface"
             - "edit port1"
-            - "set alias Data"
+            - "set alias Wan"
             - "set mode static"
             - !Join
               - ""
               - - "set ip "
                 - !Sub ${FGTAENI0.PrimaryPrivateIpAddress}
                 - /
-                - !Select [ "1", !Split [ "/", !Ref DataSubnet1] ]
+                - !Select [ "1", !Split [ "/", !Ref WanSubnet1] ]
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
             - "next"
-            - "edit port2"
+           -  "edit port2"
+            - "set alias Lan"
+            - "set mode static"
+            - !Join
+              - ""
+              - - "set ip "
+                - !Sub ${FGTAENI1.PrimaryPrivateIpAddress}
+                - /
+                - !Select [ "1", !Split [ "/", !Ref LanSubnet1] ]
+            - "set allowaccess ping https ssh"
+            - "set mtu-override enable"
+            - "set mtu 9001"
+            - "next"
+            - "edit port3"
             - "set alias hasync"
             - "set mode static"
             - !Join 
@@ -1117,13 +1181,13 @@ Resources:
             - "set mtu-override enable"
             - "set mtu 9001"
             - "next"
-            - "edit port3"
+            - "edit port4"
             - "set alias hamgmt"
             - "set mode static"
             - !Join 
               - ""
               - - "set ip "
-                - !Sub ${FGTAENI2.PrimaryPrivateIpAddress}
+                - !Sub ${FGTAENI3.PrimaryPrivateIpAddress}
                 - /
                 - !Select [ "1", !Split [ "/", !Ref MgmtSubnet1] ]  
             - "set allowaccess ping https ssh"
@@ -1137,7 +1201,40 @@ Resources:
             - !Join 
               - ""
               - - "set gateway "
-                - !Ref DataSubnet1RouterIP
+                - !Ref WanSubnet1RouterIP
+            - "next"
+            - "edit 2"
+            - "set device port2"
+            - !Join 
+              - ""
+              - - "set dst "
+              - !Ref VPCMGMTCIDR
+            - !Join 
+              - ""
+              - - "set gateway "
+              - !Ref LanSubnet1RouterIP
+            - "next"
+            - "edit 3"
+            - "set device port2"
+            - !Join 
+              - ""
+              - - "set dst "
+              - !Ref VPCSVC1CIDR
+            - !Join 
+              - ""
+              - - "set gateway "
+              - !Ref LanSubnet1RouterIP
+            - "next"
+            - "edit 4"
+            - "set device port2"
+            - !Join 
+              - ""
+              - - "set dst "
+              - !Ref VPCSVC2CIDR
+            - !Join 
+              - ""
+              - - "set gateway "
+              - !Ref LanSubnet1RouterIP
             - "end"
             - "config firewall address"
             - "edit toSVC1"
@@ -1158,36 +1255,6 @@ Resources:
               - - "set subnet "
                 - !Ref VPCMGMTCIDR
             - "end"
-            - "config firewall addrgrp"
-            - "edit to-WEST"
-            - "set member toMGMT toSVC1 toSVC2"
-            - "next"
-            - "end"
-            - "config firewall policy"
-            - "edit 1"
-            - "set name East-West"
-            - "set srcintf port1"
-            - "set dstintf port1"
-            - "set srcaddr all"
-            - "set dstaddr to-WEST"
-            - "set action accept"
-            - "set schedule always"
-            - "set service ALL"
-            - "set logtraffic all"
-            - "next"
-            - "edit 2"
-            - "set name South-North"
-            - "set srcintf port1"
-            - "set dstintf port1"
-            - "set srcaddr all"
-            - "set dstaddr to-WEST"
-            - "set dstaddr-negate enable"
-            - "set action accept"
-            - "set schedule always"
-            - "set service ALL"
-            - "set logtraffic all"
-            - "set nat enable"
-            - "end"
             - "config system ha"
             - "set group-name fortinet"
             - "set group-id 1"
@@ -1196,12 +1263,12 @@ Resources:
               - - "set password "
                 - !Ref HAsecret  
             - "set mode a-p"
-            - "set hbdev port2 50"
+            - "set hbdev port3 50"
             - "set session-pickup enable"
             - "set ha-mgmt-status enable"
             - "config ha-mgmt-interface"
             - "edit 1"
-            - "set interface port3"
+            - "set interface port4"
             - !Join 
               - ""
               - - "set gateway "
@@ -1233,6 +1300,8 @@ Resources:
           DeviceIndex: '1'
         - NetworkInterfaceId: !Ref FGTBENI2
           DeviceIndex: '2'
+        - NetworkInterfaceId: !Ref FGTBENI3
+          DeviceIndex: '3'
       Tags:
         - 
           Key: Name
@@ -1248,19 +1317,32 @@ Resources:
             - "end"
             - "config system interface"
             - "edit port1"
-            - "set alias Data"
+            - "set alias Wan"
             - "set mode static"
             - !Join
               - ""
               - - "set ip "
                 - !Sub ${FGTBENI0.PrimaryPrivateIpAddress}
                 - /
-                - !Select [ "1", !Split [ "/", !Ref DataSubnet2] ]
+                - !Select [ "1", !Split [ "/", !Ref WanSubnet2] ]
             - "set allowaccess ping https ssh"
             - "set mtu-override enable"
             - "set mtu 9001"
             - "next"
             - "edit port2"
+            - "set alias Lan"
+            - "set mode static"
+            - !Join
+              - ""
+              - - "set ip "
+                - !Sub ${FGTBENI1.PrimaryPrivateIpAddress}
+                - /
+                - !Select [ "1", !Split [ "/", !Ref LanSubnet2] ]
+            - "set allowaccess ping https ssh"
+            - "set mtu-override enable"
+            - "set mtu 9001"
+            - "next"
+            - "edit port3"
             - "set alias hasync"
             - "set mode static"
             - !Join 
@@ -1271,13 +1353,13 @@ Resources:
             - "set mtu-override enable"
             - "set mtu 9001"
             - "next"
-            - "edit port3"
+            - "edit port4"
             - "set alias hamgmt"
             - "set mode static"
             - !Join 
               - ""
               - - "set ip "
-                - !Sub ${FGTBENI2.PrimaryPrivateIpAddress}
+                - !Sub ${FGTBENI3.PrimaryPrivateIpAddress}
                 - /
                 - !Select [ "1", !Split [ "/", !Ref MgmtSubnet2] ]  
             - "set allowaccess ping https ssh"
@@ -1291,56 +1373,44 @@ Resources:
             - !Join 
               - ""
               - - "set gateway "
-                - !Ref DataSubnet2RouterIP
-            - "end"
-            - "config firewall address"
-            - "edit toSVC1"
-            - !Join 
-              - ""
-              - - "set subnet "
-                - !Ref VPCSVC1CIDR
+                - !Ref WanSubnet2RouterIP
             - "next"
-            - "edit toSVC2"
+            - "edit 2"
+            - "set device port2"
             - !Join 
               - ""
-              - - "set subnet "
-                - !Ref VPCSVC2CIDR
+              - - "set dst "
+              - !Ref VPCMGMTCIDR
+            - !Join 
+              - ""
+              - - "set gateway "
+              - !Ref LanSubnet2RouterIP
             - "next"
-            - "edit toMGMT"
+            - "edit 3"
+            - "set device port2"
             - !Join 
               - ""
-              - - "set subnet "
-                - !Ref VPCMGMTCIDR
+              - - "set dst "
+              - !Ref VPCSVC1CIDR
+            - !Join 
+              - ""
+              - - "set gateway "
+              - !Ref LanSubnet2RouterIP
+            - "next"
+            - "edit 4"
+            - "set device port2"
+            - !Join 
+              - ""
+              - - "set dst "
+              - !Ref VPCSVC2CIDR
+            - !Join 
+              - ""
+              - - "set gateway "
+              - !Ref LanSubnet2RouterIP
             - "end"
             - "config firewall addrgrp"
             - "edit to-WEST"
             - "set member toMGMT toSVC1 toSVC2"
-            - "next"
-            - "end"
-            - "config firewall policy"
-            - "edit 1"
-            - "set name East-West"
-            - "set srcintf port1"
-            - "set dstintf port1"
-            - "set srcaddr all"
-            - "set dstaddr to-WEST"
-            - "set action accept"
-            - "set schedule always"
-            - "set service ALL"
-            - "set logtraffic all"
-            - "next"
-            - "edit 2"
-            - "set name South-North"
-            - "set srcintf port1"
-            - "set dstintf port1"
-            - "set srcaddr all"
-            - "set dstaddr to-WEST"
-            - "set dstaddr-negate enable"
-            - "set action accept"
-            - "set schedule always"
-            - "set service ALL"
-            - "set logtraffic all"
-            - "set nat enable"
             - "next"
             - "end"
             - "config system ha"
@@ -1351,12 +1421,12 @@ Resources:
               - - "set password "
                 - !Ref HAsecret  
             - "set mode a-p"
-            - "set hbdev port2 50"
+            - "set hbdev port3 50"
             - "set session-pickup enable"
             - "set ha-mgmt-status enable"
             - "config ha-mgmt-interface"
             - "edit 1"
-            - "set interface port3"
+            - "set interface port4"
             - !Join 
               - ""
               - - "set gateway "
@@ -1378,7 +1448,7 @@ Resources:
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck: false
-      SubnetId: !Ref DataSubnetA
+      SubnetId: !Ref WanSubnetA
       Tags:
         - Key: Name
           Value: !Join 
@@ -1394,7 +1464,7 @@ Resources:
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck: false
-      SubnetId: !Ref DataSubnetB
+      SubnetId: !Ref WanSubnetB
       Tags:
         - Key: Name
           Value: !Join
@@ -1407,6 +1477,38 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       Description: port2
+      GroupSet:
+        - !Ref FGTSecGrpBase
+      SourceDestCheck: false
+      SubnetId: !Ref WanSubnetA
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref 'AWS::StackName'
+              - FgtAENI1
+        - Key: Interface
+          Value: eth1
+  FGTBENI1:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      Description: port2
+      GroupSet:
+        - !Ref FGTSecGrpBase
+      SourceDestCheck: false
+      SubnetId: !Ref WanSubnetB
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - !Ref 'AWS::StackName'
+              - FgtBENI1
+        - Key: Interface
+          Value: eth1
+  FGTAENI2:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      Description: port3
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck:  false
@@ -1423,11 +1525,11 @@ Resources:
           Value: !Join 
             - ''
             - - !Ref 'AWS::StackName'
-              - FgtAENI1
-  FGTBENI1:
+              - FgtAENI2
+  FGTBENI2:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
-      Description: port2
+      Description: port3
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck:  false
@@ -1445,10 +1547,10 @@ Resources:
             - ''
             - - !Ref 'AWS::StackName'
               - FgtBENI2
-  FGTAENI2:
+  FGTAENI3:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
-      Description: port3
+      Description: port4
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck:  false
@@ -1459,10 +1561,10 @@ Resources:
             - ''
             - - !Ref 'AWS::StackName'
               - FgtAENI3
-  FGTBENI2:
+  FGTBENI3:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
-      Description: port3
+      Description: port4
       GroupSet:
         - !Ref FGTSecGrpBase
       SourceDestCheck:  false
@@ -1501,14 +1603,14 @@ Resources:
       AllocationId: !GetAtt 
         - FgtAMgmtEIP
         - AllocationId
-      NetworkInterfaceId: !Ref FGTAENI2
+      NetworkInterfaceId: !Ref FGTAENI3
   FgtBMgmtEIPASSOCIATION:
     Type: 'AWS::EC2::EIPAssociation'
     Properties:
       AllocationId: !GetAtt 
         - FgtBMgmtEIP
         - AllocationId
-      NetworkInterfaceId: !Ref FGTBENI2
+      NetworkInterfaceId: !Ref FGTBENI3
   RelayRouteTable:
     Type: 'AWS::EC2::RouteTable'
     Properties:
@@ -1524,44 +1626,54 @@ Resources:
     Properties:
       RouteTableId: !Ref RelayRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      NetworkInterfaceId: !Ref FGTAENI0
-  DataRouteTable:
+      NetworkInterfaceId: !Ref FGTAENI1
+  WanRouteTable:
     Properties:
       Tags:
         - Key: Name
           Value: !Join 
             - ''
             - - !Ref 'AWS::StackName'
-              - SECHUBData-RT
+              - SECHUBWan-RT
       VpcId: !Ref VPCID
     Type: 'AWS::EC2::RouteTable'
-  DataDefaultRoute:
+  WanDefaultRoute:
     DependsOn: TgwAttHUB
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref DataRouteTable
+      RouteTableId: !Ref LanRouteTable
     Type: 'AWS::EC2::Route'
-  DataToMgmtRoute:
+  LanRouteTable:
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref 'AWS::StackName'
+              - SECHUBLan-RT
+      VpcId: !Ref VPCID
+    Type: 'AWS::EC2::RouteTable'
+  LanToMgmtRoute:
     DependsOn: TgwAttHUB
     Properties:
       DestinationCidrBlock: !Ref VPCMGMTCIDR
       TransitGatewayId: !Ref TGW1
-      RouteTableId: !Ref DataRouteTable
+      RouteTableId: !Ref LanRouteTable
     Type: 'AWS::EC2::Route'
-  DataToSVC1Route:
+  LanToSVC1Route:
     DependsOn: TgwAttHUB
     Properties:
       DestinationCidrBlock: !Ref VPCSVC1CIDR
       TransitGatewayId: !Ref TGW1
-      RouteTableId: !Ref DataRouteTable
+      RouteTableId: !Ref LanRouteTable
     Type: 'AWS::EC2::Route'
-  DataToSVC2Route:
+  LanToSVC2Route:
     DependsOn: TgwAttHUB
     Properties:
       DestinationCidrBlock: !Ref VPCSVC2CIDR
       TransitGatewayId: !Ref TGW1
-      RouteTableId: !Ref DataRouteTable
+      RouteTableId: !Ref LanRouteTable
     Type: 'AWS::EC2::Route'
   HeartbeatAZ1RouteTableAssociation:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -1585,20 +1697,30 @@ Resources:
       RouteTableId: !Ref RelayRouteTable
   SubnetRouteTableAssociation1:
     Properties:
-      RouteTableId: !Ref DataRouteTable
-      SubnetId: !Ref DataSubnetA
+      RouteTableId: !Ref WanRouteTable
+      SubnetId: !Ref WanSubnetA
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
   SubnetRouteTableAssociation2:
     Properties:
-      RouteTableId: !Ref DataRouteTable
-      SubnetId: !Ref DataSubnetB
+      RouteTableId: !Ref WanRouteTable
+      SubnetId: !Ref WanSubnetB
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
   SubnetRouteTableAssociation3:
+    Properties:
+      RouteTableId: !Ref LanRouteTable
+      SubnetId: !Ref LanSubnetA
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+  SubnetRouteTableAssociation4:
+    Properties:
+      RouteTableId: !Ref LanRouteTable
+      SubnetId: !Ref LanSubnetB
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+  SubnetRouteTableAssociation5:
     Properties:
       RouteTableId: !Ref MgmtRouteTable
       SubnetId: !Ref MgmtSubnetA
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
-  SubnetRouteTableAssociation4:
+  SubnetRouteTableAssociation6:
     Properties:
       RouteTableId: !Ref MgmtRouteTable
       SubnetId: !Ref MgmtSubnetB
@@ -1636,5 +1758,3 @@ Outputs:
   MGMTEIP:
     Description: IP Address of MGMT Ubuntu Host
     Value: !Ref EIPMGMTUbu1ENI1
-
-    
